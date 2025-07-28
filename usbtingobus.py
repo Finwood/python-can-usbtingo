@@ -299,6 +299,8 @@ class USBtingoBus(BusABC):
             # See https://github.com/Finwood/python-can-usbtingo/issues/1 for details.
             timeout = 0
 
+        msg.bitrate_switch = False  # FIXME: this is a quick fix to make communication more robust.
+
         if timeout == 0 and not self.receive_own_messages:
             self.tx_queue.put_nowait(msg)
         else:
