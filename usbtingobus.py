@@ -82,7 +82,11 @@ class USBtingoBus(BusABC):
         :param int data_bitrate:
             Bitrate to use for data phase in CAN FD.
             Defaults to arbitration bitrate.
-            
+
+        :param float sample_point:
+            Sample point location in percent.
+            Defaults to 87.5%.
+
         :param bool fd:
             If CAN-FD should be enabled.
 
@@ -104,15 +108,24 @@ class USBtingoBus(BusABC):
         """
 
         self.is_fd = kwargs.get("fd", False)
+        self.bitrate = kwargs.get("bitrate", 500000)
+        self.data_bitrate = kwargs.get("data_bitrate", self.bitrate)
+        sample_point = kwargs.get("sample_point", 87.5)
         timing = kwargs.get("timing")
+        if self.is_fd and timing is None:
+            timing = BitTimingFd.from_sample_point(
+                f_clock=self.MCAN_CLOCK_HZ,
+                nom_bitrate=self.bitrate,
+                nom_sample_point=sample_point,
+                data_bitrate=self.data_bitrate,
+                data_sample_point=sample_point,
+            )
+
         if self.is_fd and isinstance(timing, BitTimingFd):
             if timing.f_clock != self.MCAN_CLOCK_HZ:
                 timing = timing.recreate_with_f_clock(self.MCAN_CLOCK_HZ)
             self.bitrate = timing.nom_bitrate
             self.data_bitrate = timing.data_bitrate
-        else:
-            self.bitrate = kwargs.get("bitrate", 500000)
-            self.data_bitrate = kwargs.get("data_bitrate", self.bitrate)
 
         self.serialnumber = kwargs.get("serial", channel)
         self.cprotocol = kwargs.get("protocol", self.PROTOCOL_CAN_FD if self.is_fd else self.PROTOCOL_CAN_20)
