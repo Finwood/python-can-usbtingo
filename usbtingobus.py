@@ -160,6 +160,7 @@ class USBtingoBus(BusABC):
         self.command_write(self.CMD_SET_MODE, 0)
         self.command_write(self.CMD_SET_PROTOCOL, self.cprotocol | (flags << 8))
         if self.is_fd and isinstance(timing, BitTimingFd):
+            # fmt: off
             nbtp_register = (
                 ((timing.nom_tseg2 - 1) & 0x07f) << 0   # 6:0   NTSEG2
               | ((timing.nom_tseg1 - 1) & 0x0ff) << 8   # 15:8  NTSEG1
@@ -173,6 +174,7 @@ class USBtingoBus(BusABC):
               | ((timing.data_brp - 1)   & 0x1f) << 16  # 20:16 DBRP
               | (1 << 23)                               # 23    TDC
             )
+            # fmt: on
             self.mcan_register_write(0x1C, nbtp_register)
             self.mcan_register_write(0x0C, dbtp_register)
         else:
@@ -292,6 +294,11 @@ class USBtingoBus(BusABC):
             while len(msg.data) < msg.dlc:
                 msg.data.append(0x00)        
         
+        if isinstance(timeout, float) and timeout < 1:
+            # FIXME: this is a hack to avoid 30-ms roundtrip delays.
+            # See https://github.com/Finwood/python-can-usbtingo/issues/1 for details.
+            timeout = 0
+
         if timeout == 0 and not self.receive_own_messages:
             self.tx_queue.put_nowait(msg)
         else:
