@@ -30,6 +30,19 @@ import logging
 
 log = logging.getLogger(__name__)
 
+# fmt: off
+_STATIC_TIMING = {
+    (1_000_000, 5_000_000, 87.5): BitTimingFd(
+        f_clock=120_000_000,
+        nom_brp=3,  nom_tseg1=34,  nom_tseg2=5,  nom_sjw=5,
+        data_brp=1, data_tseg1=20, data_tseg2=3, data_sjw=3,
+        strict=False,
+    )
+}
+# fmt: on
+"""Static, pre-calculated bit timing configurations for common CAN-FD bitrates."""
+
+
 class USBtingoBus(BusABC):
 
     """
@@ -112,13 +125,17 @@ class USBtingoBus(BusABC):
         self.data_bitrate = kwargs.get("data_bitrate", self.bitrate)
         sample_point = kwargs.get("sample_point", 87.5)
         timing = kwargs.get("timing")
+
         if self.is_fd and timing is None:
-            timing = BitTimingFd.from_sample_point(
-                f_clock=self.MCAN_CLOCK_HZ,
-                nom_bitrate=self.bitrate,
-                nom_sample_point=sample_point,
-                data_bitrate=self.data_bitrate,
-                data_sample_point=sample_point,
+            timing = _STATIC_TIMING.get(
+                (self.bitrate, self.data_bitrate, sample_point),
+                BitTimingFd.from_sample_point(
+                    f_clock=self.MCAN_CLOCK_HZ,
+                    nom_bitrate=self.bitrate,
+                    nom_sample_point=sample_point,
+                    data_bitrate=self.data_bitrate,
+                    data_sample_point=sample_point,
+                ),
             )
 
         if self.is_fd and isinstance(timing, BitTimingFd):
@@ -177,6 +194,7 @@ class USBtingoBus(BusABC):
             # fmt: on
             self.mcan_register_write(0x1C, nbtp_register)
             self.mcan_register_write(0x0C, dbtp_register)
+            log.debug("bit timing configured to %s", timing)
         else:
             self.command_write(self.CMD_SET_BAUDRATE, 0, 0, struct.pack("<I", self.bitrate))
             self.command_write(self.CMD_SET_BAUDRATE, 1, 0, struct.pack("<I", self.data_bitrate))
